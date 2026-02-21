@@ -1,0 +1,19 @@
+services:
+  backend:
+    image: notdonny/clouddrive-backend:latest
+    volumes:
+      - ./data:/app/data
+    environment:
+      - SECRET_KEY=change-me-to-something-secret
+      - JWT_SECRET_KEY=change-me-to-something-secret
+      - DATA_DIR=/app/data
+      - FRONTEND_ORIGIN=http://localhost
+    restart: unless-stopped
+
+  frontend:
+    image: notdonny/clouddrive-frontend:latest
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

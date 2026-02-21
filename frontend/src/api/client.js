@@ -7,7 +7,7 @@ function getCookie(name) {
 }
 
 const client = axios.create({
-  baseURL: 'http://localhost:5000',
+  baseURL: '',
   // M-1: withCredentials sends the HttpOnly JWT cookie automatically.
   // The token is never readable by JavaScript.
   withCredentials: true,

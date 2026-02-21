@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+DATA_DIR = os.environ.get('DATA_DIR', BASE_DIR)
 
 
 def _require_env(name: str) -> str:
@@ -23,10 +24,10 @@ class Config:
     SECRET_KEY = _require_env('SECRET_KEY')
     JWT_SECRET_KEY = _require_env('JWT_SECRET_KEY')
 
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(BASE_DIR, 'storage.db')
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(DATA_DIR, 'storage.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
+    UPLOAD_FOLDER = os.path.join(DATA_DIR, 'uploads')
     MAX_CONTENT_LENGTH = 500 * 1024 * 1024     # 500 MB per request
     MAX_USER_STORAGE = 1 * 1024 * 1024 * 1024  # 1 GB per user (H-5)
 
