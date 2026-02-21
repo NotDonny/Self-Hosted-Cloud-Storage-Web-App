@@ -4,8 +4,8 @@ services:
     volumes:
       - ./data:/app/data
     environment:
-      - SECRET_KEY=change-me-to-something-secret
-      - JWT_SECRET_KEY=change-me-to-something-secret
+      - SECRET_KEY=305508e213d35c562b9f4d52332c55ea42614a9f93aa9ea91baf3b25a216de72
+      - JWT_SECRET_KEY=a4d5147d80ed392df106f7f9241b1e4240ae4afe3fd0fbbd368a9bbbf9efba99
       - DATA_DIR=/app/data
       - FRONTEND_ORIGIN=http://localhost
     restart: unless-stopped
