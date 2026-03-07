@@ -9,6 +9,7 @@ from extensions import limiter
 from models import db, TokenBlocklist
 from auth import auth_bp
 from files import files_bp
+from folders import folders_bp
 
 
 def create_app():
@@ -38,9 +39,18 @@ def create_app():
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(files_bp)
+    app.register_blueprint(folders_bp)
 
     with app.app_context():
         db.create_all()
+        # One-time migration: add folder_id to files table if missing
+        inspector = db.inspect(db.engine)
+        columns = [col['name'] for col in inspector.get_columns('files')]
+        if 'folder_id' not in columns:
+            db.session.execute(db.text(
+                'ALTER TABLE files ADD COLUMN folder_id INTEGER REFERENCES folders(id)'
+            ))
+            db.session.commit()
 
     # L-4: Security headers on every response.
     @app.after_request

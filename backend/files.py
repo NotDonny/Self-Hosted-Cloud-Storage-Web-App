@@ -8,7 +8,7 @@ from flask import Blueprint, request, jsonify, send_file, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 
-from models import db, File
+from models import db, File, Folder
 
 files_bp = Blueprint('files', __name__, url_prefix='/api/files')
 logger = logging.getLogger(__name__)
@@ -34,6 +34,42 @@ def list_files():
     user_id = int(get_jwt_identity())
     user_files = File.query.filter_by(user_id=user_id).order_by(File.uploaded_at.desc()).all()
     return jsonify([f.to_dict() for f in user_files]), 200
+
+
+@files_bp.route('/browse', methods=['GET'])
+@jwt_required()
+def browse():
+    user_id = int(get_jwt_identity())
+    folder_id = request.args.get('folder_id', type=int)
+
+    current_folder = None
+    if folder_id is not None:
+        current_folder = Folder.query.filter_by(id=folder_id, user_id=user_id).first_or_404()
+
+    folders = Folder.query.filter_by(
+        user_id=user_id, parent_id=folder_id
+    ).order_by(Folder.name).all()
+
+    files = File.query.filter_by(
+        user_id=user_id, folder_id=folder_id
+    ).order_by(File.uploaded_at.desc()).all()
+
+    # Build breadcrumbs by walking up the parent chain
+    breadcrumbs = [{'id': None, 'name': 'My Files'}]
+    if current_folder:
+        chain = []
+        f = current_folder
+        while f:
+            chain.append({'id': f.id, 'name': f.name})
+            f = Folder.query.get(f.parent_id) if f.parent_id else None
+        breadcrumbs.extend(reversed(chain))
+
+    return jsonify({
+        'folders': [f.to_dict() for f in folders],
+        'files': [f.to_dict() for f in files],
+        'current_folder': current_folder.to_dict() if current_folder else None,
+        'breadcrumbs': breadcrumbs,
+    }), 200
 
 
 @files_bp.route('/upload', methods=['POST'])
@@ -79,16 +115,43 @@ def upload_file():
         os.remove(save_path)
         return jsonify({'error': 'Storage quota exceeded'}), 413
 
+    folder_id = request.form.get('folder_id', type=int)
+    if folder_id is not None:
+        folder = Folder.query.filter_by(id=folder_id, user_id=user_id).first()
+        if not folder:
+            os.remove(save_path)
+            return jsonify({'error': 'Folder not found'}), 404
+
     file_record = File(
         user_id=user_id,
         filename=stored_name,
         original_name=original_name,
         size=size,
         mimetype=safe_mime,
+        folder_id=folder_id,
     )
     db.session.add(file_record)
     db.session.commit()
     return jsonify(file_record.to_dict()), 201
+
+
+@files_bp.route('/<int:file_id>/move', methods=['PATCH'])
+@jwt_required()
+def move_file(file_id):
+    user_id = int(get_jwt_identity())
+    file_record = File.query.filter_by(id=file_id, user_id=user_id).first_or_404()
+
+    data = request.get_json(silent=True) or {}
+    folder_id = data.get('folder_id')  # None means move to root
+
+    if folder_id is not None:
+        folder = Folder.query.filter_by(id=folder_id, user_id=user_id).first()
+        if not folder:
+            return jsonify({'error': 'Folder not found'}), 404
+
+    file_record.folder_id = folder_id
+    db.session.commit()
+    return jsonify(file_record.to_dict()), 200
 
 
 @files_bp.route('/<int:file_id>/download', methods=['GET'])

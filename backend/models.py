@@ -19,9 +19,34 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=_now)
 
     files = db.relationship('File', backref='owner', lazy=True, cascade='all, delete-orphan')
+    folders = db.relationship('Folder', backref='owner', lazy=True, cascade='all, delete-orphan')
 
     def to_dict(self):
         return {'id': self.id, 'email': self.email, 'created_at': self.created_at.isoformat()}
+
+
+class Folder(db.Model):
+    __tablename__ = 'folders'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    parent_id = db.Column(db.Integer, db.ForeignKey('folders.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=_now)
+
+    parent = db.relationship('Folder', remote_side=[id], backref='children')
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'parent_id', 'name', name='uq_folder_location'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'parent_id': self.parent_id,
+            'created_at': self.created_at.isoformat(),
+        }
 
 
 class File(db.Model):
@@ -33,7 +58,10 @@ class File(db.Model):
     original_name = db.Column(db.String(255), nullable=False)  # original upload name
     size = db.Column(db.BigInteger, nullable=False)
     mimetype = db.Column(db.String(128))
+    folder_id = db.Column(db.Integer, db.ForeignKey('folders.id'), nullable=True)
     uploaded_at = db.Column(db.DateTime, default=_now)
+
+    folder = db.relationship('Folder', backref='files')
 
     def to_dict(self):
         return {
@@ -41,6 +69,7 @@ class File(db.Model):
             'original_name': self.original_name,
             'size': self.size,
             'mimetype': self.mimetype,
+            'folder_id': self.folder_id,
             'uploaded_at': self.uploaded_at.isoformat(),
         }
 

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import client from '../api/client'
 
 function formatBytes(bytes) {
@@ -44,7 +45,9 @@ function FileIcon({ mimetype }) {
   )
 }
 
-export default function FileCard({ file, onDelete }) {
+export default function FileCard({ file, onDelete, onMove, folders, currentFolderId }) {
+  const [showMoveMenu, setShowMoveMenu] = useState(false)
+
   async function handleDownload() {
     const response = await client.get(`/api/files/${file.id}/download`, {
       responseType: 'blob',
@@ -61,6 +64,16 @@ export default function FileCard({ file, onDelete }) {
     if (!confirm(`Delete "${file.original_name}"?`)) return
     await client.delete(`/api/files/${file.id}`)
     onDelete(file.id)
+  }
+
+  async function handleMove(folderId) {
+    try {
+      await client.patch(`/api/files/${file.id}/move`, { folder_id: folderId })
+      onMove(file.id)
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to move file')
+    }
+    setShowMoveMenu(false)
   }
 
   return (
@@ -84,6 +97,38 @@ export default function FileCard({ file, onDelete }) {
         >
           Download
         </button>
+        <div className="relative flex-1">
+          <button
+            onClick={() => setShowMoveMenu(!showMoveMenu)}
+            className="w-full text-xs bg-yellow-50 hover:bg-yellow-100 text-yellow-700 font-medium py-1.5 rounded-lg transition"
+          >
+            Move
+          </button>
+          {showMoveMenu && (
+            <div className="absolute z-10 bottom-full mb-1 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-48 overflow-y-auto">
+              {currentFolderId != null && (
+                <button
+                  onClick={() => handleMove(null)}
+                  className="w-full text-left text-xs px-3 py-2 hover:bg-gray-100 text-gray-600 italic"
+                >
+                  Root (My Files)
+                </button>
+              )}
+              {folders.length === 0 && currentFolderId == null && (
+                <div className="text-xs px-3 py-2 text-gray-400">No folders</div>
+              )}
+              {folders.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => handleMove(f.id)}
+                  className="w-full text-left text-xs px-3 py-2 hover:bg-gray-100 text-gray-700"
+                >
+                  {f.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button
           onClick={handleDelete}
           className="flex-1 text-xs bg-red-50 hover:bg-red-100 text-red-600 font-medium py-1.5 rounded-lg transition"
