@@ -55,7 +55,11 @@ def register():
         # L-3: Deliberately vague to slow email enumeration.
         return jsonify({'error': 'This email address cannot be used'}), 409
 
-    user = User(email=email, password_hash=generate_password_hash(password))
+    # Upgraded to stronger password hashing - scrypt
+    user = User(
+    email=email,
+    password_hash=generate_password_hash(password, method="scrypt", salt_length=16),
+    )
     db.session.add(user)
     db.session.commit()
 
