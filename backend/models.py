@@ -81,3 +81,21 @@ class TokenBlocklist(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     jti = db.Column(db.String(36), nullable=False, unique=True, index=True)
     revoked_at = db.Column(db.DateTime, nullable=False, default=_now)
+
+
+class AuditLog(db.Model):
+    __tablename__ = 'audit_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Nullable because some events happen before auth (e.g., failed login)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+
+    action = db.Column(db.String(64), nullable=False)  # e.g., LOGIN_SUCCESS, FILE_UPLOAD
+    resource_type = db.Column(db.String(32), nullable=True)  # 'file', 'folder', etc.
+    resource_id = db.Column(db.Integer, nullable=True)
+
+    ip_address = db.Column(db.String(45), nullable=True)  # IPv4/IPv6 max length
+    details = db.Column(db.Text, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=_now, nullable=False)
