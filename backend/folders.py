@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from models import db, Folder, File
+from audit import log_event
 
 folders_bp = Blueprint('folders', __name__, url_prefix='/api/folders')
 
@@ -34,6 +35,14 @@ def create_folder():
     folder = Folder(user_id=user_id, name=name, parent_id=parent_id)
     db.session.add(folder)
     db.session.commit()
+
+    log_event(
+        "FOLDER_CREATE",
+        user_id=user_id,
+        resource_type="folder",
+        resource_id=folder.id,
+        details=name,
+    )
     return jsonify(folder.to_dict()), 201
 
 
@@ -46,8 +55,21 @@ def delete_folder(folder_id):
     has_files = File.query.filter_by(folder_id=folder_id, user_id=user_id).first()
     has_subfolders = Folder.query.filter_by(parent_id=folder_id, user_id=user_id).first()
     if has_files or has_subfolders:
+        log_event(
+            "FOLDER_DELETE_BLOCKED_NOT_EMPTY",
+            user_id=user_id,
+            resource_type="folder",
+            resource_id=folder_id,
+        )
         return jsonify({'error': 'Folder is not empty'}), 409
 
     db.session.delete(folder)
     db.session.commit()
+    
+    log_event(
+        "FOLDER_DELETE",
+        user_id=user_id,
+        resource_type="folder",
+        resource_id=folder_id,
+    )
     return jsonify({'message': 'Folder deleted'}), 200

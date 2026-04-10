@@ -5,11 +5,12 @@ from flask_jwt_extended import (
     create_access_token,
     jwt_required,
     get_jwt,
+    get_jwt_identity,
     set_access_cookies,
     unset_jwt_cookies,
 )
 from werkzeug.security import generate_password_hash, check_password_hash
-
+from audit import log_event
 from extensions import limiter
 from models import db, User, TokenBlocklist
 
@@ -55,9 +56,14 @@ def register():
         # L-3: Deliberately vague to slow email enumeration.
         return jsonify({'error': 'This email address cannot be used'}), 409
 
-    user = User(email=email, password_hash=generate_password_hash(password))
+    # Upgraded to stronger password hashing - scrypt
+    user = User(
+    email=email,
+    password_hash=generate_password_hash(password, method="scrypt", salt_length=16),
+    )
     db.session.add(user)
     db.session.commit()
+    log_event("REGISTER", user_id=user.id, details=user.email)
 
     # M-1: Token set as HttpOnly cookie — never exposed to JavaScript.
     token = create_access_token(identity=str(user.id))
@@ -75,7 +81,10 @@ def login():
 
     user = User.query.filter_by(email=email).first()
     if not user or not check_password_hash(user.password_hash, password):
+        log_event("LOGIN_FAIL", user_id=None, details=f"email={email}")
         return jsonify({'error': 'Invalid email or password'}), 401
+    
+    log_event("LOGIN_SUCCESS", user_id=user.id, details=user.email)
 
     token = create_access_token(identity=str(user.id))
     response = jsonify({'user': user.to_dict()})
@@ -96,4 +105,6 @@ def logout():
 
     response = jsonify({'message': 'Logged out'})
     unset_jwt_cookies(response)
+    uid = get_jwt_identity()
+    log_event("LOGOUT", user_id=int(uid) if uid else None)
     return response, 200
