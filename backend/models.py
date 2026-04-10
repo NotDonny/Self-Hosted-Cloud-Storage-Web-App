@@ -83,6 +83,25 @@ class TokenBlocklist(db.Model):
     revoked_at = db.Column(db.DateTime, nullable=False, default=_now)
 
 
+class PasswordResetToken(db.Model):
+    """Secure single-use tokens for password reset emails.
+
+    Security properties:
+    - Token is a 32-byte URL-safe random value (256 bits of entropy).
+    - Expires after 1 hour (PR-1).
+    - Marked used after consumption so it cannot be replayed (PR-2).
+    - Old tokens for the same user are invalidated on new request (PR-3).
+    """
+    __tablename__ = 'password_reset_tokens'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    token_hash = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=_now)
+
+    user = db.relationship('User', backref='reset_tokens')
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
 
