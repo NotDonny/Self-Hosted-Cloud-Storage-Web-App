@@ -2,6 +2,7 @@ import logging
 import mimetypes
 import os
 import uuid
+from audit import log_event
 
 from sqlalchemy import func
 from flask import Blueprint, request, jsonify, send_file, current_app
@@ -92,6 +93,7 @@ def upload_file():
 
     # H-1: Reject files whose extension is not in the allowlist.
     if not _allowed_file(original_name):
+        log_event("UPLOAD_BLOCKED_TYPE", user_id=user_id, details=original_name)
         return jsonify({'error': 'File type not allowed'}), 400
 
     # H-2: Determine MIME type from the sanitised filename, not the client header.
@@ -113,6 +115,7 @@ def upload_file():
 
     if used + size > quota:
         os.remove(save_path)
+        log_event("UPLOAD_QUOTA_EXCEEDED", user_id=user_id, details=original_name)
         return jsonify({'error': 'Storage quota exceeded'}), 413
 
     folder_id = request.form.get('folder_id', type=int)
@@ -132,6 +135,14 @@ def upload_file():
     )
     db.session.add(file_record)
     db.session.commit()
+    
+    log_event(
+        "FILE_UPLOAD",
+        user_id=user_id,
+        resource_type="file",
+        resource_id=file_record.id,
+        details=original_name,
+    )
     return jsonify(file_record.to_dict()), 201
 
 
@@ -163,7 +174,13 @@ def download_file(file_id):
     file_path = os.path.join(user_upload_dir(user_id), file_record.filename)
     if not os.path.exists(file_path):
         return jsonify({'error': 'File not found on disk'}), 404
-
+    log_event(
+        "FILE_DOWNLOAD",
+        user_id=user_id,
+        resource_type="file",
+        resource_id=file_record.id,
+        details=file_record.original_name,
+    )
     return send_file(
         file_path,
         as_attachment=True,
@@ -190,4 +207,12 @@ def delete_file(file_id):
 
     db.session.delete(file_record)
     db.session.commit()
+    
+    log_event(
+        "FILE_DELETE",
+        user_id=user_id,
+        resource_type="file",
+        resource_id=file_record.id,
+        details=file_record.original_name,
+    )
     return jsonify({'message': 'File deleted'}), 200
