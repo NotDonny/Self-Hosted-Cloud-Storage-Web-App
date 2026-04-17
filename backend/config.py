@@ -28,7 +28,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     UPLOAD_FOLDER = os.path.join(DATA_DIR, 'uploads')
-    MAX_CONTENT_LENGTH = 500 * 1024 * 1024     # 500 MB per request
+    MAX_CONTENT_LENGTH = 100 * 1024 * 1024     # 100 MB per request (Cloudflare Free tier cap)
     MAX_USER_STORAGE = 1 * 1024 * 1024 * 1024  # 1 GB per user (H-5)
 
     # H-1: Server-side extension allowlist.
